@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,13 +16,18 @@ export const metadata: Metadata = {
   title: "Aktiv - Find Real Accountability Partners",
   description: "Find real people to stay accountable with your goals",
   manifest: "/manifest.json",
-  themeColor: "#0f0f0f",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Aktiv",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#0f0f0f",
 };
 
 export default function RootLayout({
