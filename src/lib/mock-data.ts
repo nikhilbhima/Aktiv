@@ -200,7 +200,7 @@ export const mockChatThreads: ChatThread[] = [
       timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
       read: false,
     },
-    unreadCount: 2,
+    unreadCount: 1,
     messages: [
       {
         id: 'msg-chat1-0',
