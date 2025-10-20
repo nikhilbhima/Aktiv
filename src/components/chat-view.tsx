@@ -7,9 +7,14 @@ import { mockChatThreads, currentUser } from '@/lib/mock-data';
 import { motion } from 'framer-motion';
 
 export function ChatView() {
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
-    mockChatThreads[0]?.id || null
-  );
+  // Auto-select first thread on desktop, but not on mobile
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() => {
+    // Check if we're on mobile (initial render only)
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return null;
+    }
+    return mockChatThreads[0]?.id || null;
+  });
   const [messageInput, setMessageInput] = useState('');
 
   const selectedThread = mockChatThreads.find(

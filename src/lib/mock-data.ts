@@ -194,7 +194,7 @@ export const mockChatThreads: ChatThread[] = [
     id: 'chat-1',
     participant: mockMatches[0].user,
     lastMessage: {
-      id: 'msg-1',
+      id: 'msg-chat1-2',
       senderId: 'user-2',
       text: 'Want to join me for a run tomorrow morning?',
       timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
@@ -203,21 +203,21 @@ export const mockChatThreads: ChatThread[] = [
     unreadCount: 2,
     messages: [
       {
-        id: 'msg-0',
+        id: 'msg-chat1-0',
         senderId: 'user-1',
         text: 'Hey! I saw you\'re also training for a run. How\'s it going?',
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
         read: true,
       },
       {
-        id: 'msg-1',
+        id: 'msg-chat1-1',
         senderId: 'user-2',
         text: 'Going great! I\'m on week 6 of my training plan.',
         timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
         read: true,
       },
       {
-        id: 'msg-2',
+        id: 'msg-chat1-2',
         senderId: 'user-2',
         text: 'Want to join me for a run tomorrow morning?',
         timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
@@ -229,7 +229,7 @@ export const mockChatThreads: ChatThread[] = [
     id: 'chat-2',
     participant: mockMatches[1].user,
     lastMessage: {
-      id: 'msg-3',
+      id: 'msg-chat2-1',
       senderId: 'user-1',
       text: 'Thanks for the tips! I\'ll check out that podcast.',
       timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
@@ -238,14 +238,14 @@ export const mockChatThreads: ChatThread[] = [
     unreadCount: 0,
     messages: [
       {
-        id: 'msg-3',
+        id: 'msg-chat2-0',
         senderId: 'user-3',
         text: 'I recommend the Coffee Break Spanish podcast!',
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
         read: true,
       },
       {
-        id: 'msg-4',
+        id: 'msg-chat2-1',
         senderId: 'user-1',
         text: 'Thanks for the tips! I\'ll check out that podcast.',
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),

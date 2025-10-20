@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { categoryIcons, type GoalCategory } from '@/lib/mock-data';
+import { categoryIcons, currentUser, type GoalCategory } from '@/lib/mock-data';
 
 interface SidebarProps {
   mode: 'accountability' | 'irl';
@@ -125,7 +125,9 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
               </span>
               <div className="flex items-center gap-1">
                 <span className="text-2xl">🔥</span>
-                <span className="text-xl font-bold text-orange-400">12</span>
+                <span className="text-xl font-bold text-orange-400">
+                  {currentUser.streakDays}
+                </span>
                 <span className="text-sm text-muted-foreground">days</span>
               </div>
             </div>
@@ -133,13 +135,17 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
               <span className="text-sm text-muted-foreground">
                 Goals Completed
               </span>
-              <span className="text-xl font-bold text-green-400">24</span>
+              <span className="text-xl font-bold text-green-400">
+                {currentUser.goalsCompleted}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
                 Active Goals
               </span>
-              <span className="text-xl font-bold text-blue-400">2</span>
+              <span className="text-xl font-bold text-blue-400">
+                {currentUser.currentGoals.length}
+              </span>
             </div>
           </div>
         </div>

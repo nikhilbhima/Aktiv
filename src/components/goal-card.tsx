@@ -87,9 +87,12 @@ export function GoalCard({ goal, compact = false }: GoalCardProps) {
         </div>
         <div className="text-center">
           <p className="text-2xl font-bold text-green-400">
-            {Math.ceil(
-              ((new Date(goal.targetDate).getTime() - Date.now()) /
-                (1000 * 60 * 60 * 24))
+            {Math.max(
+              0,
+              Math.ceil(
+                (new Date(goal.targetDate).getTime() - Date.now()) /
+                  (1000 * 60 * 60 * 24)
+              )
             )}
           </p>
           <p className="text-xs text-muted-foreground">Days left</p>
