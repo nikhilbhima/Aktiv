@@ -124,7 +124,10 @@ CREATE TABLE messages (
 
     -- Timestamps
     sent_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- Note: sender_id validation is enforced by RLS policy, not constraint
+    -- (constraint would require self-join which hurts performance)
 );
 
 -- Check-ins Table
@@ -166,7 +169,7 @@ CREATE TABLE irl_activities (
 
     -- Capacity
     max_participants INTEGER CHECK (max_participants IS NULL OR max_participants > 0),
-    current_participants INTEGER DEFAULT 1 CHECK (current_participants >= 0 AND (max_participants IS NULL OR current_participants <= max_participants)),
+    current_participants INTEGER DEFAULT 0 CHECK (current_participants >= 0 AND (max_participants IS NULL OR current_participants <= max_participants)),
 
     -- Status
     status TEXT DEFAULT 'open' CHECK (status IN ('open', 'full', 'cancelled', 'completed')),
@@ -689,10 +692,19 @@ CREATE POLICY "Users can view activity participants"
         )
     );
 
--- Users can join activities
+-- Users can join activities (if not full)
 CREATE POLICY "Users can join activities"
     ON irl_activity_participants FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+    WITH CHECK (
+        auth.uid() = user_id
+        AND EXISTS (
+            SELECT 1 FROM irl_activities
+            WHERE irl_activities.id = activity_id
+            AND irl_activities.status = 'open'
+            AND (irl_activities.max_participants IS NULL
+                OR irl_activities.current_participants < irl_activities.max_participants)
+        )
+    );
 
 -- Users can update their participation status
 CREATE POLICY "Users can update own participation"
