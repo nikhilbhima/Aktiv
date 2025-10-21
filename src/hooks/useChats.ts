@@ -100,50 +100,74 @@ export function useChats() {
 
       if (matchesError) throw matchesError;
 
-      // For each match, fetch the other user and messages
-      const threadsData = await Promise.all(
-        (matches || []).map(async (match) => {
-          // Determine the other user's ID
+      if (!matches || matches.length === 0) {
+        setThreads([]);
+        return;
+      }
+
+      // Extract all other user IDs and match IDs
+      const otherUserIds = matches.map((match) =>
+        match.user1_id === user.id ? match.user2_id : match.user1_id
+      );
+      const matchIds = matches.map((match) => match.id);
+
+      // Batch fetch all users in one query
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .in('id', otherUserIds);
+
+      if (usersError) throw usersError;
+
+      // Batch fetch all messages in one query
+      const { data: allMessages, error: messagesError } = await supabase
+        .from('messages')
+        .select('*')
+        .in('match_id', matchIds)
+        .order('created_at', { ascending: true });
+
+      if (messagesError) throw messagesError;
+
+      // Create lookup maps
+      const usersMap = new Map(
+        (usersData || []).map((user) => [user.id, user])
+      );
+      const messagesByMatch = (allMessages || []).reduce((acc: any, message) => {
+        if (!acc[message.match_id]) acc[message.match_id] = [];
+        acc[message.match_id].push(message);
+        return acc;
+      }, {});
+
+      // Build threads
+      const threadsData = matches
+        .map((match) => {
           const otherUserId =
             match.user1_id === user.id ? match.user2_id : match.user1_id;
+          const otherUser = usersMap.get(otherUserId);
 
-          // Fetch other user's profile
-          const { data: otherUser, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', otherUserId)
-            .single();
+          if (!otherUser) return null; // Skip if user not found
 
-          if (userError) throw userError;
-
-          // Fetch messages for this match
-          const { data: messages, error: messagesError } = await supabase
-            .from('messages')
-            .select('*')
-            .eq('match_id', match.id)
-            .order('created_at', { ascending: true });
-
-          if (messagesError) throw messagesError;
+          const messages = messagesByMatch[match.id] || [];
 
           // Count unread messages
-          const unreadCount = messages?.filter(
-            (msg) => !msg.is_read && msg.sender_id !== user.id
-          ).length || 0;
+          const unreadCount = messages.filter(
+            (msg: Message) => !msg.is_read && msg.sender_id !== user.id
+          ).length;
 
           // Get last message
-          const lastMessage = messages && messages.length > 0
+          const lastMessage = messages.length > 0
             ? messages[messages.length - 1]
             : null;
 
           return {
             match,
             otherUser,
-            messages: messages || [],
+            messages,
             unreadCount,
             lastMessage,
           };
         })
-      );
+        .filter((thread): thread is ChatThread => thread !== null);
 
       // Sort by last message time (most recent first)
       threadsData.sort((a, b) => {

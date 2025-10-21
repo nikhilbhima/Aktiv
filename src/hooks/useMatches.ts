@@ -37,102 +37,79 @@ export function useMatches(mode: 'accountability' | 'irl') {
       setError(null);
 
       // Call the appropriate matching function based on mode
-      if (mode === 'irl') {
-        // IRL mode - find nearby users (within 50km)
-        const { data, error: matchError } = await supabase.rpc(
-          'find_irl_matches',
-          {
-            for_user_id: user.id,
-            max_distance_meters: 50000, // 50km
-            limit_count: 20,
-          }
-        );
+      const isIRLMode = mode === 'irl';
+      const { data, error: matchError } = await supabase.rpc(
+        isIRLMode ? 'find_irl_matches' : 'find_accountability_matches',
+        isIRLMode
+          ? {
+              for_user_id: user.id,
+              max_distance_meters: 50000, // 50km
+              limit_count: 20,
+            }
+          : {
+              for_user_id: user.id,
+              limit_count: 20,
+            }
+      );
 
-        if (matchError) throw matchError;
+      if (matchError) throw matchError;
 
-        // Transform the data
-        const transformedMatches = await Promise.all(
-          (data || []).map(async (match: any) => {
-            // Fetch user details
-            const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', match.user_id)
-              .single();
-
-            if (userError) throw userError;
-
-            // Fetch user's active goals
-            const { data: goalsData, error: goalsError } = await supabase
-              .from('goals')
-              .select('*')
-              .eq('user_id', match.user_id)
-              .eq('status', 'active')
-              .eq('is_public', true)
-              .limit(3);
-
-            if (goalsError) throw goalsError;
-
-            return {
-              id: match.user_id,
-              user: userData,
-              goals: goalsData || [],
-              matchScore: match.match_score,
-              distance: match.distance_km,
-              isIRL: true,
-            };
-          })
-        );
-
-        setMatches(transformedMatches);
-      } else {
-        // Accountability mode - find online partners
-        const { data, error: matchError } = await supabase.rpc(
-          'find_accountability_matches',
-          {
-            for_user_id: user.id,
-            limit_count: 20,
-          }
-        );
-
-        if (matchError) throw matchError;
-
-        // Transform the data
-        const transformedMatches = await Promise.all(
-          (data || []).map(async (match: any) => {
-            // Fetch user details
-            const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', match.user_id)
-              .single();
-
-            if (userError) throw userError;
-
-            // Fetch user's active goals
-            const { data: goalsData, error: goalsError } = await supabase
-              .from('goals')
-              .select('*')
-              .eq('user_id', match.user_id)
-              .eq('status', 'active')
-              .eq('is_public', true)
-              .limit(3);
-
-            if (goalsError) throw goalsError;
-
-            return {
-              id: match.user_id,
-              user: userData,
-              goals: goalsData || [],
-              matchScore: match.match_score,
-              distance: null,
-              isIRL: false,
-            };
-          })
-        );
-
-        setMatches(transformedMatches);
+      if (!data || data.length === 0) {
+        setMatches([]);
+        return;
       }
+
+      // Extract all user IDs
+      const userIds = data.map((match: any) => match.user_id);
+
+      // Batch fetch all users in one query
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .in('id', userIds);
+
+      if (usersError) throw usersError;
+
+      // Batch fetch all goals in one query
+      const { data: goalsData, error: goalsError } = await supabase
+        .from('goals')
+        .select('*')
+        .in('user_id', userIds)
+        .eq('status', 'active')
+        .eq('is_public', true);
+
+      if (goalsError) throw goalsError;
+
+      // Create lookup maps for O(1) access
+      const usersMap = new Map(
+        (usersData || []).map((user) => [user.id, user])
+      );
+      const goalsByUser = (goalsData || []).reduce((acc: any, goal) => {
+        if (!acc[goal.user_id]) acc[goal.user_id] = [];
+        acc[goal.user_id].push(goal);
+        return acc;
+      }, {});
+
+      // Transform matches using the fetched data
+      const transformedMatches = data
+        .map((match: any) => {
+          const user = usersMap.get(match.user_id);
+          if (!user) return null; // Skip if user not found
+
+          const userGoals = (goalsByUser[match.user_id] || []).slice(0, 3);
+
+          return {
+            id: match.user_id,
+            user,
+            goals: userGoals,
+            matchScore: match.match_score,
+            distance: isIRLMode ? match.distance_km : null,
+            isIRL: isIRLMode,
+          };
+        })
+        .filter((match): match is MatchWithDetails => match !== null);
+
+      setMatches(transformedMatches);
     } catch (err) {
       console.error('Error fetching matches:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch matches');
