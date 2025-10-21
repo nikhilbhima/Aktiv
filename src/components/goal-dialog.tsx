@@ -92,6 +92,13 @@ export function GoalDialog({
     setLoading(true);
     setError(null);
 
+    // Validate date range
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      setError('End date must be on or after start date');
+      setLoading(false);
+      return;
+    }
+
     const goalData = {
       title,
       description: description || null,

@@ -58,7 +58,10 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
 
   const handleDeleteGoal = async (goalId: string) => {
     if (confirm('Are you sure you want to delete this goal?')) {
-      await deleteGoal(goalId);
+      const { error } = await deleteGoal(goalId);
+      if (error) {
+        alert(`Failed to delete goal: ${error}`);
+      }
     }
   };
 

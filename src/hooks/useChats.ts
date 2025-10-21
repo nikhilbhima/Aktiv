@@ -228,14 +228,15 @@ export function useChats() {
       setThreads((prev) =>
         prev.map((thread) => {
           if (thread.match.id === matchId) {
+            const filteredMessages = thread.messages.filter(
+              (msg) => msg.id !== optimisticMessage.id
+            );
             return {
               ...thread,
-              messages: thread.messages.filter(
-                (msg) => msg.id !== optimisticMessage.id
-              ),
+              messages: filteredMessages,
               lastMessage:
-                thread.messages.length > 1
-                  ? thread.messages[thread.messages.length - 2]
+                filteredMessages.length > 0
+                  ? filteredMessages[filteredMessages.length - 1]
                   : null,
             };
           }
