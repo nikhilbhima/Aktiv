@@ -1,24 +1,47 @@
 'use client';
 
-import { ProfileCard } from '@/components/profile-card';
-import { GoalCard } from '@/components/goal-card';
-import { mockMatches } from '@/lib/mock-data';
+import { useState } from 'react';
+import { useMatches } from '@/hooks/useMatches';
 import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
 
 interface FeedViewProps {
   mode: 'accountability' | 'irl';
 }
 
 export function FeedView({ mode }: FeedViewProps) {
-  // Filter matches based on mode
-  const filteredMatches = mockMatches.filter((match) => {
-    if (mode === 'irl') {
-      return match.matchedGoals.some((goal) => goal.isIRL);
-    }
-    return true; // Show all in accountability mode
-  });
+  const { matches, loading, error, sendMatchRequest } = useMatches(mode);
+  const [sendingRequestTo, setSendingRequestTo] = useState<string | null>(null);
 
-  if (filteredMatches.length === 0) {
+  const handleSendRequest = async (userId: string) => {
+    setSendingRequestTo(userId);
+    const { error: requestError } = await sendMatchRequest(userId);
+    if (requestError) {
+      alert(`Error: ${requestError}`);
+    }
+    setSendingRequestTo(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
+        <p className="text-muted-foreground">Finding your matches...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="text-6xl mb-6">⚠️</div>
+        <h2 className="text-2xl font-semibold mb-2 text-red-500">Error</h2>
+        <p className="text-muted-foreground max-w-md">{error}</p>
+      </div>
+    );
+  }
+
+  if (matches.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
         <motion.div
@@ -49,54 +72,76 @@ export function FeedView({ mode }: FeedViewProps) {
             {mode === 'irl' ? 'Nearby Matches' : 'Accountability Partners'}
           </h2>
           <p className="text-muted-foreground">
-            {filteredMatches.length} {filteredMatches.length === 1 ? 'person' : 'people'} found
+            {matches.length} {matches.length === 1 ? 'person' : 'people'} found
           </p>
         </div>
       </div>
 
       {/* Matches Feed */}
       <div className="space-y-6">
-        {filteredMatches.map((match, index) => (
+        {matches.map((match, index) => (
           <motion.div
             key={match.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: index * 0.1 }}
           >
-            <div className="space-y-4">
-              {/* Profile Card */}
-              <ProfileCard
-                user={match.user}
-                showDistance={mode === 'irl'}
-                distance={match.distance}
-                matchScore={match.matchScore}
-                onMessageClick={() => {
-                  // TODO: Open chat
-                  console.log('Message', match.user.name);
-                }}
-              />
+            <div className="gradient-card rounded-2xl border border-border p-6 space-y-4">
+              {/* User Profile Header */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4 flex-1">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white text-2xl font-bold">
+                    {match.user.full_name?.charAt(0) || '?'}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold">{match.user.full_name}</h3>
+                    <p className="text-sm text-muted-foreground">@{match.user.username}</p>
+                    {match.user.bio && (
+                      <p className="text-sm mt-2 text-muted-foreground">{match.user.bio}</p>
+                    )}
+                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                      {match.matchScore !== null && (
+                        <span className="text-orange-500 font-medium">
+                          {Math.round(match.matchScore * 100)}% Match
+                        </span>
+                      )}
+                      {match.distance !== null && (
+                        <span>{match.distance.toFixed(1)} km away</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => handleSendRequest(match.user.id)}
+                  disabled={sendingRequestTo === match.user.id}
+                  className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
+                >
+                  {sendingRequestTo === match.user.id ? 'Sending...' : 'Connect'}
+                </Button>
+              </div>
 
               {/* Matched Goals */}
-              <div className="ml-6 pl-6 border-l-2 border-orange-500/20">
-                <h4 className="text-sm font-medium text-muted-foreground mb-3">
-                  Matched Goals
-                </h4>
-                <div className="space-y-3">
-                  {match.matchedGoals.map((goal) => (
-                    <GoalCard key={goal.id} goal={goal} compact />
-                  ))}
+              {match.goals.length > 0 && (
+                <div className="pt-4 border-t border-border/40">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">
+                    Active Goals
+                  </h4>
+                  <div className="space-y-2">
+                    {match.goals.map((goal) => (
+                      <div key={goal.id} className="flex items-center gap-2 text-sm">
+                        <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                        <span className="font-medium">{goal.title}</span>
+                        <span className="text-muted-foreground">
+                          ({goal.category})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </motion.div>
         ))}
-      </div>
-
-      {/* Load More (placeholder) */}
-      <div className="flex justify-center pt-8">
-        <button className="px-6 py-2 rounded-lg border border-border/40 text-sm font-medium hover:border-orange-500/30 transition-colors">
-          Load more matches
-        </button>
       </div>
     </div>
   );

@@ -40,6 +40,7 @@ export default function SignupPage() {
 
       // Create user profile in database
       if (authData.user) {
+        // @ts-ignore - Type mismatch with Supabase generics
         const { error: profileError } = await supabase.from('users').insert({
           id: authData.user.id,
           email,
@@ -57,8 +58,8 @@ export default function SignupPage() {
         router.push('/dashboard')
         router.refresh()
       }, 1500)
-    } catch (err: any) {
-      setError(err.message || 'Failed to create account')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create account')
     } finally {
       setLoading(false)
     }

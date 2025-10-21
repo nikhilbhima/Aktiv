@@ -4,7 +4,7 @@
 // SUPABASE QUERY HELPERS
 // =====================================================
 
-import type { User, Goal, Checkin } from '@/types/database.types'
+import type { User, Goal } from '@/types/database.types'
 import { createClient } from './client'
 
 type SupabaseClient = ReturnType<typeof createClient>

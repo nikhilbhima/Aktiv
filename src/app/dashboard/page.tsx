@@ -1,15 +1,56 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Sidebar } from '@/components/sidebar';
 import { FeedView } from '@/components/feed-view';
 import { ChatView } from '@/components/chat-view';
+import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
+  const { user, profile, loading, signOut } = useAuth();
+  const router = useRouter();
   const [mode, setMode] = useState<'accountability' | 'irl'>('accountability');
   const [activeView, setActiveView] = useState<'feed' | 'chat'>('feed');
   const [showSidebar, setShowSidebar] = useState(false);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  // Sync mode with user profile
+  useEffect(() => {
+    if (profile) {
+      setMode(profile.accountability_mode ? 'accountability' : 'irl');
+    }
+  }, [profile]);
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!user || !profile) {
+    return null;
+  }
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -67,6 +108,22 @@ export default function DashboardPage() {
             >
               Chats
             </button>
+
+            {/* User Menu */}
+            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border/40">
+              <div className="hidden md:flex flex-col items-end">
+                <span className="text-sm font-medium">{profile.full_name}</span>
+                <span className="text-xs text-muted-foreground">@{profile.username}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                className="text-xs"
+              >
+                Sign Out
+              </Button>
+            </div>
           </nav>
         </div>
 

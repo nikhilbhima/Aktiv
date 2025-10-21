@@ -2,25 +2,41 @@
 
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { categoryIcons, currentUser, type GoalCategory } from '@/lib/mock-data';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { useGoals } from '@/hooks/useGoals';
+import { GoalDialog } from '@/components/goal-dialog';
+import type { Goal } from '@/types/database.types';
 
 interface SidebarProps {
   mode: 'accountability' | 'irl';
   onClose?: () => void;
 }
 
-const categories: { value: GoalCategory; label: string }[] = [
-  { value: 'fitness', label: 'Fitness' },
-  { value: 'learning', label: 'Learning' },
-  { value: 'creative', label: 'Creative' },
-  { value: 'productivity', label: 'Productivity' },
-  { value: 'wellness', label: 'Wellness' },
-  { value: 'social', label: 'Social' },
+type GoalCategory = 'fitness' | 'nutrition' | 'learning' | 'reading' | 'creative' | 'career' | 'finance' | 'mindfulness' | 'social' | 'other';
+
+const categories: { value: GoalCategory; label: string; icon: string }[] = [
+  { value: 'fitness', label: 'Fitness', icon: '💪' },
+  { value: 'nutrition', label: 'Nutrition', icon: '🥗' },
+  { value: 'learning', label: 'Learning', icon: '📚' },
+  { value: 'reading', label: 'Reading', icon: '📖' },
+  { value: 'creative', label: 'Creative', icon: '🎨' },
+  { value: 'career', label: 'Career', icon: '💼' },
+  { value: 'finance', label: 'Finance', icon: '💰' },
+  { value: 'mindfulness', label: 'Mindfulness', icon: '🧘' },
+  { value: 'social', label: 'Social', icon: '👥' },
+  { value: 'other', label: 'Other', icon: '📌' },
 ];
 
 export function Sidebar({ mode, onClose }: SidebarProps) {
+  const { profile } = useAuth();
+  const { goals, createGoal, updateGoal, deleteGoal } = useGoals();
   const [selectedCategories, setSelectedCategories] = useState<GoalCategory[]>([]);
   const [maxDistance, setMaxDistance] = useState<number>(25);
+  const [showGoalDialog, setShowGoalDialog] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  const activeGoals = goals.filter((g) => g.status === 'active');
 
   const toggleCategory = (category: GoalCategory) => {
     setSelectedCategories((prev) =>
@@ -28,6 +44,30 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
         ? prev.filter((c) => c !== category)
         : [...prev, category]
     );
+  };
+
+  const handleCreateGoal = () => {
+    setEditingGoal(null);
+    setShowGoalDialog(true);
+  };
+
+  const handleEditGoal = (goal: Goal) => {
+    setEditingGoal(goal);
+    setShowGoalDialog(true);
+  };
+
+  const handleDeleteGoal = async (goalId: string) => {
+    if (confirm('Are you sure you want to delete this goal?')) {
+      await deleteGoal(goalId);
+    }
+  };
+
+  const handleGoalSubmit = async (goalData: any) => {
+    if (editingGoal) {
+      return await updateGoal(editingGoal.id, goalData);
+    } else {
+      return await createGoal(goalData);
+    }
   };
 
   return (
@@ -79,9 +119,7 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
                   className="cursor-pointer hover:scale-105 transition-transform"
                   onClick={() => toggleCategory(category.value)}
                 >
-                  <span className="mr-1">
-                    {categoryIcons[category.value]}
-                  </span>
+                  <span className="mr-1">{category.icon}</span>
                   {category.label}
                 </Badge>
               ))}
@@ -115,6 +153,59 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
           )}
         </div>
 
+        {/* My Goals Card */}
+        <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">My Goals</h2>
+            <Button
+              size="sm"
+              onClick={handleCreateGoal}
+              className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-xs"
+            >
+              + New
+            </Button>
+          </div>
+          <div className="space-y-3 max-h-60 overflow-y-auto">
+            {activeGoals.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No active goals yet. Create one to get started!
+              </p>
+            ) : (
+              activeGoals.map((goal) => (
+                <div
+                  key={goal.id}
+                  className="p-3 rounded-lg bg-background/50 border border-border/40 hover:border-orange-500/30 transition-colors group"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium truncate">{goal.title}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {goal.frequency} • {goal.category}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleEditGoal(goal)}
+                        className="p-1 hover:bg-accent rounded text-xs"
+                        title="Edit"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => handleDeleteGoal(goal.id)}
+                        className="p-1 hover:bg-accent rounded text-xs"
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         {/* Quick Stats Card */}
         <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm p-6">
           <h2 className="text-lg font-semibold mb-4">Your Progress</h2>
@@ -126,7 +217,7 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
               <div className="flex items-center gap-1">
                 <span className="text-2xl">🔥</span>
                 <span className="text-xl font-bold text-orange-400">
-                  {currentUser.streakDays}
+                  {profile?.streak_days || 0}
                 </span>
                 <span className="text-sm text-muted-foreground">days</span>
               </div>
@@ -136,7 +227,7 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
                 Goals Completed
               </span>
               <span className="text-xl font-bold text-green-400">
-                {currentUser.goalsCompleted}
+                {profile?.total_goals_completed || 0}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -144,7 +235,7 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
                 Active Goals
               </span>
               <span className="text-xl font-bold text-blue-400">
-                {currentUser.currentGoals.length}
+                {activeGoals.length}
               </span>
             </div>
           </div>
@@ -158,6 +249,15 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
           <p className="text-xs text-muted-foreground mt-2">— Mark Twain</p>
         </div>
       </div>
+
+      {/* Goal Dialog */}
+      <GoalDialog
+        open={showGoalDialog}
+        onOpenChange={setShowGoalDialog}
+        onSubmit={handleGoalSubmit}
+        goal={editingGoal}
+        mode={editingGoal ? 'edit' : 'create'}
+      />
     </aside>
   );
 }

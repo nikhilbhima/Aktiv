@@ -30,8 +30,8 @@ export default function LoginPage() {
 
       router.push('/dashboard')
       router.refresh()
-    } catch (err: any) {
-      setError(err.message || 'Failed to login')
+} catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to login')
     } finally {
       setLoading(false)
     }
@@ -100,7 +100,7 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">Don't have an account? </span>
+              <span className="text-muted-foreground">Don&apos;t have an account? </span>
               <Link
                 href="/signup"
                 className="font-medium text-orange-500 hover:text-orange-600 transition-colors"

@@ -1,0 +1,240 @@
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Match, Message, User } from '@/types/database.types';
+
+interface ChatThread {
+  match: Match;
+  otherUser: User;
+  messages: Message[];
+  unreadCount: number;
+  lastMessage: Message | null;
+}
+
+export function useChats() {
+  const { user } = useAuth();
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    if (!user) {
+      setThreads([]);
+      setLoading(false);
+      return;
+    }
+
+    fetchChats();
+
+    // Subscribe to real-time message updates
+    const channel = supabase
+      .channel('messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+          // Add the new message to the appropriate thread
+          setThreads((prev) =>
+            prev.map((thread) => {
+              if (thread.match.id === newMessage.match_id) {
+                return {
+                  ...thread,
+                  messages: [...thread.messages, newMessage],
+                  lastMessage: newMessage,
+                  unreadCount:
+                    newMessage.sender_id !== user.id
+                      ? thread.unreadCount + 1
+                      : thread.unreadCount,
+                };
+              }
+              return thread;
+            })
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const fetchChats = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get all accepted matches for the current user
+      const { data: matches, error: matchesError } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('status', 'accepted')
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+
+      if (matchesError) throw matchesError;
+
+      // For each match, fetch the other user and messages
+      const threadsData = await Promise.all(
+        (matches || []).map(async (match) => {
+          // Determine the other user's ID
+          const otherUserId =
+            match.user1_id === user.id ? match.user2_id : match.user1_id;
+
+          // Fetch other user's profile
+          const { data: otherUser, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', otherUserId)
+            .single();
+
+          if (userError) throw userError;
+
+          // Fetch messages for this match
+          const { data: messages, error: messagesError } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('match_id', match.id)
+            .order('created_at', { ascending: true });
+
+          if (messagesError) throw messagesError;
+
+          // Count unread messages
+          const unreadCount = messages?.filter(
+            (msg) => !msg.is_read && msg.sender_id !== user.id
+          ).length || 0;
+
+          // Get last message
+          const lastMessage = messages && messages.length > 0
+            ? messages[messages.length - 1]
+            : null;
+
+          return {
+            match,
+            otherUser,
+            messages: messages || [],
+            unreadCount,
+            lastMessage,
+          };
+        })
+      );
+
+      // Sort by last message time (most recent first)
+      threadsData.sort((a, b) => {
+        const aTime = a.lastMessage?.created_at || a.match.created_at;
+        const bTime = b.lastMessage?.created_at || b.match.created_at;
+        return new Date(bTime).getTime() - new Date(aTime).getTime();
+      });
+
+      setThreads(threadsData);
+    } catch (err) {
+      console.error('Error fetching chats:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch chats');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendMessage = async (matchId: string, content: string) => {
+    if (!user) return { error: 'Not authenticated' };
+
+    try {
+      // @ts-ignore - Type mismatch with Supabase generics
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          match_id: matchId,
+          sender_id: user.id,
+          content,
+          is_read: false,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { data, error: null };
+    } catch (err) {
+      console.error('Error sending message:', err);
+      return {
+        data: null,
+        error: err instanceof Error ? err.message : 'Failed to send message',
+      };
+    }
+  };
+
+  const markAsRead = async (messageIds: string[]) => {
+    if (!user || messageIds.length === 0) return;
+
+    try {
+      // @ts-ignore - Type mismatch with Supabase generics
+      await supabase
+        .from('messages')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .in('id', messageIds)
+        .neq('sender_id', user.id); // Only mark messages sent by others
+
+      // Update local state
+      setThreads((prev) =>
+        prev.map((thread) => ({
+          ...thread,
+          messages: thread.messages.map((msg) =>
+            messageIds.includes(msg.id) && msg.sender_id !== user.id
+              ? { ...msg, is_read: true, read_at: new Date().toISOString() }
+              : msg
+          ),
+          unreadCount: thread.messages.filter(
+            (msg) =>
+              !messageIds.includes(msg.id) &&
+              !msg.is_read &&
+              msg.sender_id !== user.id
+          ).length,
+        }))
+      );
+    } catch (err) {
+      console.error('Error marking messages as read:', err);
+    }
+  };
+
+  const unmatch = async (matchId: string) => {
+    if (!user) return { error: 'Not authenticated' };
+
+    try {
+      // Update match status to blocked
+      // @ts-ignore - Type mismatch with Supabase generics
+      const { error } = await supabase
+        .from('matches')
+        .update({ status: 'blocked' })
+        .eq('id', matchId);
+
+      if (error) throw error;
+
+      // Remove from local state
+      setThreads((prev) => prev.filter((thread) => thread.match.id !== matchId));
+
+      return { error: null };
+    } catch (err) {
+      console.error('Error unmatching:', err);
+      return {
+        error: err instanceof Error ? err.message : 'Failed to unmatch',
+      };
+    }
+  };
+
+  return {
+    threads,
+    loading,
+    error,
+    sendMessage,
+    markAsRead,
+    unmatch,
+    refresh: fetchChats,
+  };
+}
