@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Match, Message, User } from '@/types/database.types';
@@ -18,73 +18,7 @@ export function useChats() {
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
-  useEffect(() => {
-    if (!user) {
-      setThreads([]);
-      setLoading(false);
-      return;
-    }
-
-    fetchChats();
-
-    // Note: Realtime subscription will be set up after we fetch matches
-    // We can't filter by match_id until we know which matches exist
-    // This is acceptable because RLS will prevent unauthorized access
-    // But we should still filter to avoid unnecessary network traffic
-
-    // Subscribe to real-time message updates
-    // Filter by messages where we are a participant (via match)
-    const channel = supabase
-      .channel(`user-messages-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          // Note: We can't easily filter by match_id here without knowing all match IDs
-          // RLS policies will ensure we only receive messages we're allowed to see
-          // A better approach would be to subscribe per-thread, but that's complex
-        },
-        (payload) => {
-          const newMessage = payload.new as Message;
-          // Only update if this message belongs to one of our threads
-          setThreads((prev) => {
-            const threadIndex = prev.findIndex(t => t.match.id === newMessage.match_id);
-            if (threadIndex === -1) {
-              // Message for a match we don't have loaded, ignore it
-              return prev;
-            }
-
-            return prev.map((thread) => {
-              if (thread.match.id === newMessage.match_id) {
-                // Check if message already exists (avoid duplicates)
-                const messageExists = thread.messages.some(m => m.id === newMessage.id);
-                if (messageExists) return thread;
-
-                return {
-                  ...thread,
-                  messages: [...thread.messages, newMessage],
-                  lastMessage: newMessage,
-                  unreadCount:
-                    newMessage.sender_id !== user.id
-                      ? thread.unreadCount + 1
-                      : thread.unreadCount,
-                };
-              }
-              return thread;
-            });
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
-
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -183,7 +117,83 @@ export function useChats() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, supabase]);
+
+  useEffect(() => {
+    if (!user) {
+      setThreads([]);
+      setLoading(false);
+      return;
+    }
+
+    fetchChats();
+
+    // Subscribe to real-time message updates
+    // Filter by messages where we are a participant (via match)
+    const channel = supabase
+      .channel(`user-messages-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          // Note: We can't easily filter by match_id here without knowing all match IDs
+          // RLS policies will ensure we only receive messages we're allowed to see
+          // A better approach would be to subscribe per-thread, but that's complex
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+
+          // Ignore temp messages (optimistic updates from our own sends)
+          if (newMessage.id.startsWith('temp-')) {
+            return;
+          }
+
+          // Only update if this message belongs to one of our threads
+          setThreads((prev) => {
+            const threadIndex = prev.findIndex(t => t.match.id === newMessage.match_id);
+            if (threadIndex === -1) {
+              // Message for a match we don't have loaded, ignore it
+              return prev;
+            }
+
+            return prev.map((thread) => {
+              if (thread.match.id === newMessage.match_id) {
+                // Check if message already exists (avoid duplicates)
+                const messageExists = thread.messages.some(m => m.id === newMessage.id);
+                if (messageExists) return thread;
+
+                // Also check if we have a temp message that should be replaced
+                // This handles the case where optimistic update hasn't been replaced yet
+                const hasTempMessage = thread.messages.some(m => m.id.startsWith('temp-'));
+                if (hasTempMessage && newMessage.sender_id === user.id) {
+                  // This is likely our own message coming back, but optimistic update hasn't replaced it yet
+                  // Let the optimistic update handler replace it instead
+                  return thread;
+                }
+
+                return {
+                  ...thread,
+                  messages: [...thread.messages, newMessage],
+                  lastMessage: newMessage,
+                  unreadCount:
+                    newMessage.sender_id !== user.id
+                      ? thread.unreadCount + 1
+                      : thread.unreadCount,
+                };
+              }
+              return thread;
+            });
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchChats, supabase]);
 
   const sendMessage = async (matchId: string, content: string) => {
     if (!user) return { error: 'Not authenticated' };

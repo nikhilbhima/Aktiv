@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { User, Goal } from '@/types/database.types';
@@ -19,17 +19,7 @@ export function useMatches(mode: 'accountability' | 'irl') {
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
-  useEffect(() => {
-    if (!user) {
-      setMatches([]);
-      setLoading(false);
-      return;
-    }
-
-    fetchMatches();
-  }, [user, mode]);
-
-  const fetchMatches = async () => {
+  const fetchMatches = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -116,7 +106,17 @@ export function useMatches(mode: 'accountability' | 'irl') {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, mode, supabase]);
+
+  useEffect(() => {
+    if (!user) {
+      setMatches([]);
+      setLoading(false);
+      return;
+    }
+
+    fetchMatches();
+  }, [user, fetchMatches]);
 
   const sendMatchRequest = async (targetUserId: string) => {
     if (!user) return { error: 'Not authenticated' };

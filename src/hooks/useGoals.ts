@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Goal } from '@/types/database.types';
@@ -10,17 +10,7 @@ export function useGoals() {
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
-  useEffect(() => {
-    if (!user) {
-      setGoals([]);
-      setLoading(false);
-      return;
-    }
-
-    fetchGoals();
-  }, [user]);
-
-  const fetchGoals = async () => {
+  const fetchGoals = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -42,7 +32,17 @@ export function useGoals() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, supabase]);
+
+  useEffect(() => {
+    if (!user) {
+      setGoals([]);
+      setLoading(false);
+      return;
+    }
+
+    fetchGoals();
+  }, [user, fetchGoals]);
 
   const createGoal = async (goalData: Omit<Goal, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     if (!user) return { error: 'Not authenticated' };
