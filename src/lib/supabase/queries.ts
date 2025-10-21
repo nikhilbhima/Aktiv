@@ -346,7 +346,8 @@ export async function joinIRLActivity(
   activityId: string,
   userId: string
 ) {
-  const { data, error } = await supabase
+  // Participant count is automatically incremented by database trigger
+  return await supabase
     .from('irl_activity_participants')
     .insert({
       activity_id: activityId,
@@ -355,23 +356,6 @@ export async function joinIRLActivity(
     })
     .select()
     .single()
-
-  if (error) throw error
-
-  const { data: activity } = await supabase
-    .from('irl_activities')
-    .select('current_participants')
-    .eq('id', activityId)
-    .single()
-
-  if (activity) {
-    await supabase
-      .from('irl_activities')
-      .update({ current_participants: activity.current_participants + 1 })
-      .eq('id', activityId)
-  }
-
-  return { data, error }
 }
 
 export async function leaveIRLActivity(
@@ -379,24 +363,10 @@ export async function leaveIRLActivity(
   activityId: string,
   userId: string
 ) {
-  const { error } = await supabase
+  // Participant count is automatically decremented by database trigger
+  return await supabase
     .from('irl_activity_participants')
     .delete()
     .eq('activity_id', activityId)
     .eq('user_id', userId)
-
-  if (error) throw error
-
-  const { data: activity } = await supabase
-    .from('irl_activities')
-    .select('current_participants')
-    .eq('id', activityId)
-    .single()
-
-  if (activity && activity.current_participants > 0) {
-    await supabase
-      .from('irl_activities')
-      .update({ current_participants: activity.current_participants - 1 })
-      .eq('id', activityId)
-  }
 }

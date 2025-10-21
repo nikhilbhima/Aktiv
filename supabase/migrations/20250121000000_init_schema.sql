@@ -42,9 +42,9 @@ CREATE TABLE users (
     website_url TEXT,
 
     -- Stats
-    streak_days INTEGER DEFAULT 0,
-    total_goals_completed INTEGER DEFAULT 0,
-    total_checkins INTEGER DEFAULT 0,
+    streak_days INTEGER DEFAULT 0 CHECK (streak_days >= 0),
+    total_goals_completed INTEGER DEFAULT 0 CHECK (total_goals_completed >= 0),
+    total_checkins INTEGER DEFAULT 0 CHECK (total_checkins >= 0),
 
     -- Timestamps
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -66,9 +66,9 @@ CREATE TABLE goals (
 
     -- Frequency & Timeline
     frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly', 'custom')),
-    frequency_count INTEGER DEFAULT 1, -- e.g., "3 times per week"
+    frequency_count INTEGER DEFAULT 1 CHECK (frequency_count > 0), -- e.g., "3 times per week"
     start_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    end_date DATE,
+    end_date DATE CHECK (end_date IS NULL OR end_date >= start_date),
 
     -- Status
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'paused', 'abandoned')),
@@ -77,9 +77,9 @@ CREATE TABLE goals (
     is_public BOOLEAN DEFAULT true,
 
     -- Stats
-    total_checkins INTEGER DEFAULT 0,
-    current_streak INTEGER DEFAULT 0,
-    longest_streak INTEGER DEFAULT 0,
+    total_checkins INTEGER DEFAULT 0 CHECK (total_checkins >= 0),
+    current_streak INTEGER DEFAULT 0 CHECK (current_streak >= 0),
+    longest_streak INTEGER DEFAULT 0 CHECK (longest_streak >= 0),
 
     -- Timestamps
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -95,7 +95,7 @@ CREATE TABLE matches (
 
     -- Match Details
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'blocked')),
-    match_score DECIMAL(3, 2), -- 0.00 to 1.00 similarity score
+    match_score DECIMAL(3, 2) CHECK (match_score IS NULL OR (match_score >= 0 AND match_score <= 1.00)), -- 0.00 to 1.00 similarity score
 
     -- Match Type
     is_irl_match BOOLEAN DEFAULT false,
@@ -165,8 +165,8 @@ CREATE TABLE irl_activities (
     duration_minutes INTEGER,
 
     -- Capacity
-    max_participants INTEGER,
-    current_participants INTEGER DEFAULT 1,
+    max_participants INTEGER CHECK (max_participants IS NULL OR max_participants > 0),
+    current_participants INTEGER DEFAULT 1 CHECK (current_participants >= 0 AND (max_participants IS NULL OR current_participants <= max_participants)),
 
     -- Status
     status TEXT DEFAULT 'open' CHECK (status IN ('open', 'full', 'cancelled', 'completed')),
@@ -218,6 +218,7 @@ CREATE INDEX idx_messages_match_id ON messages(match_id);
 CREATE INDEX idx_messages_sender_id ON messages(sender_id);
 CREATE INDEX idx_messages_sent_at ON messages(sent_at);
 CREATE INDEX idx_messages_match_sent ON messages(match_id, sent_at); -- Composite for chat history
+CREATE INDEX idx_messages_unread ON messages(match_id, is_read) WHERE is_read = false; -- Partial index for unread messages
 
 -- Check-ins
 CREATE INDEX idx_checkins_goal_id ON checkins(goal_id);
@@ -231,6 +232,7 @@ CREATE INDEX idx_irl_activities_category ON irl_activities(category);
 CREATE INDEX idx_irl_activities_scheduled_at ON irl_activities(scheduled_at);
 CREATE INDEX idx_irl_activities_location ON irl_activities USING GIST(location_point);
 CREATE INDEX idx_irl_activities_status ON irl_activities(status);
+CREATE INDEX idx_irl_activities_future ON irl_activities(scheduled_at) WHERE status = 'open'; -- Partial index for upcoming events
 
 -- IRL Activity Participants
 CREATE INDEX idx_irl_participants_activity ON irl_activity_participants(activity_id);
@@ -283,6 +285,47 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_stats_on_checkin AFTER INSERT ON checkins
     FOR EACH ROW EXECUTE FUNCTION update_user_stats_on_checkin();
+
+-- Function to auto-add creator as participant when creating IRL activity
+CREATE OR REPLACE FUNCTION auto_add_creator_as_participant()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO irl_activity_participants (activity_id, user_id, status)
+    VALUES (NEW.id, NEW.creator_id, 'confirmed');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER auto_add_creator AFTER INSERT ON irl_activities
+    FOR EACH ROW EXECUTE FUNCTION auto_add_creator_as_participant();
+
+-- Function to update participant count when someone joins
+CREATE OR REPLACE FUNCTION increment_participant_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE irl_activities
+    SET current_participants = current_participants + 1
+    WHERE id = NEW.activity_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER increment_participants AFTER INSERT ON irl_activity_participants
+    FOR EACH ROW EXECUTE FUNCTION increment_participant_count();
+
+-- Function to update participant count when someone leaves
+CREATE OR REPLACE FUNCTION decrement_participant_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE irl_activities
+    SET current_participants = GREATEST(current_participants - 1, 0)
+    WHERE id = OLD.activity_id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER decrement_participants AFTER DELETE ON irl_activity_participants
+    FOR EACH ROW EXECUTE FUNCTION decrement_participant_count();
 
 -- Function to calculate match score based on shared interests
 CREATE OR REPLACE FUNCTION calculate_match_score(
@@ -368,10 +411,9 @@ BEGIN
     FROM users u
     WHERE u.id != for_user_id  -- Exclude self
         AND u.accountability_mode = true  -- Only accountability mode users
-        AND u.id NOT IN (  -- Exclude existing matches
-            SELECT user2_id FROM matches WHERE user1_id = for_user_id
-            UNION
-            SELECT user1_id FROM matches WHERE user2_id = for_user_id
+        AND NOT EXISTS (  -- Exclude existing matches (properly handle user1_id < user2_id constraint)
+            SELECT 1 FROM matches m
+            WHERE (m.user1_id = LEAST(for_user_id, u.id) AND m.user2_id = GREATEST(for_user_id, u.id))
         )
         AND EXISTS (  -- Only users with active goals
             SELECT 1 FROM goals WHERE user_id = u.id AND status = 'active'
@@ -433,10 +475,9 @@ BEGIN
         AND u.accountability_mode = false  -- IRL mode users
         AND u.location_point IS NOT NULL
         AND ST_DWithin(user_location, u.location_point, max_distance_meters)
-        AND u.id NOT IN (
-            SELECT user2_id FROM matches WHERE user1_id = for_user_id
-            UNION
-            SELECT user1_id FROM matches WHERE user2_id = for_user_id
+        AND NOT EXISTS (  -- Exclude existing matches (properly handle user1_id < user2_id constraint)
+            SELECT 1 FROM matches m
+            WHERE (m.user1_id = LEAST(for_user_id, u.id) AND m.user2_id = GREATEST(for_user_id, u.id))
         )
         AND EXISTS (
             SELECT 1 FROM goals WHERE user_id = u.id AND status = 'active'
