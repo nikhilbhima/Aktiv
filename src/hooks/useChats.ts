@@ -27,22 +27,41 @@ export function useChats() {
 
     fetchChats();
 
+    // Note: Realtime subscription will be set up after we fetch matches
+    // We can't filter by match_id until we know which matches exist
+    // This is acceptable because RLS will prevent unauthorized access
+    // But we should still filter to avoid unnecessary network traffic
+
     // Subscribe to real-time message updates
+    // Filter by messages where we are a participant (via match)
     const channel = supabase
-      .channel('messages')
+      .channel(`user-messages-${user.id}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
+          // Note: We can't easily filter by match_id here without knowing all match IDs
+          // RLS policies will ensure we only receive messages we're allowed to see
+          // A better approach would be to subscribe per-thread, but that's complex
         },
         (payload) => {
           const newMessage = payload.new as Message;
-          // Add the new message to the appropriate thread
-          setThreads((prev) =>
-            prev.map((thread) => {
+          // Only update if this message belongs to one of our threads
+          setThreads((prev) => {
+            const threadIndex = prev.findIndex(t => t.match.id === newMessage.match_id);
+            if (threadIndex === -1) {
+              // Message for a match we don't have loaded, ignore it
+              return prev;
+            }
+
+            return prev.map((thread) => {
               if (thread.match.id === newMessage.match_id) {
+                // Check if message already exists (avoid duplicates)
+                const messageExists = thread.messages.some(m => m.id === newMessage.id);
+                if (messageExists) return thread;
+
                 return {
                   ...thread,
                   messages: [...thread.messages, newMessage],
@@ -54,8 +73,8 @@ export function useChats() {
                 };
               }
               return thread;
-            })
-          );
+            });
+          });
         }
       )
       .subscribe();
@@ -145,6 +164,31 @@ export function useChats() {
   const sendMessage = async (matchId: string, content: string) => {
     if (!user) return { error: 'Not authenticated' };
 
+    // Create optimistic message
+    const optimisticMessage: Message = {
+      id: `temp-${Date.now()}`,
+      match_id: matchId,
+      sender_id: user.id,
+      content,
+      is_read: false,
+      created_at: new Date().toISOString(),
+      read_at: null,
+    };
+
+    // Optimistically add to UI
+    setThreads((prev) =>
+      prev.map((thread) => {
+        if (thread.match.id === matchId) {
+          return {
+            ...thread,
+            messages: [...thread.messages, optimisticMessage],
+            lastMessage: optimisticMessage,
+          };
+        }
+        return thread;
+      })
+    );
+
     try {
       // @ts-ignore - Type mismatch with Supabase generics
       const { data, error } = await supabase
@@ -160,9 +204,45 @@ export function useChats() {
 
       if (error) throw error;
 
+      // Replace optimistic message with real one
+      setThreads((prev) =>
+        prev.map((thread) => {
+          if (thread.match.id === matchId) {
+            return {
+              ...thread,
+              messages: thread.messages.map((msg) =>
+                msg.id === optimisticMessage.id ? data : msg
+              ),
+              lastMessage: data,
+            };
+          }
+          return thread;
+        })
+      );
+
       return { data, error: null };
     } catch (err) {
       console.error('Error sending message:', err);
+
+      // Rollback optimistic update
+      setThreads((prev) =>
+        prev.map((thread) => {
+          if (thread.match.id === matchId) {
+            return {
+              ...thread,
+              messages: thread.messages.filter(
+                (msg) => msg.id !== optimisticMessage.id
+              ),
+              lastMessage:
+                thread.messages.length > 1
+                  ? thread.messages[thread.messages.length - 2]
+                  : null,
+            };
+          }
+          return thread;
+        })
+      );
+
       return {
         data: null,
         error: err instanceof Error ? err.message : 'Failed to send message',
@@ -175,13 +255,15 @@ export function useChats() {
 
     try {
       // @ts-ignore - Type mismatch with Supabase generics
-      await supabase
+      const { error } = await supabase
         .from('messages')
         .update({ is_read: true, read_at: new Date().toISOString() })
         .in('id', messageIds)
         .neq('sender_id', user.id); // Only mark messages sent by others
 
-      // Update local state
+      if (error) throw error;
+
+      // Update local state AFTER confirming DB success
       setThreads((prev) =>
         prev.map((thread) => ({
           ...thread,
@@ -200,6 +282,7 @@ export function useChats() {
       );
     } catch (err) {
       console.error('Error marking messages as read:', err);
+      // Don't update local state if DB update failed
     }
   };
 
@@ -216,7 +299,7 @@ export function useChats() {
 
       if (error) throw error;
 
-      // Remove from local state
+      // Remove from local state AFTER confirming DB success
       setThreads((prev) => prev.filter((thread) => thread.match.id !== matchId));
 
       return { error: null };

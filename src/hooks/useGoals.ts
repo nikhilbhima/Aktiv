@@ -88,7 +88,7 @@ export function useGoals() {
 
       if (error) throw error;
 
-      // Update local state
+      // Update local state AFTER confirming DB success
       setGoals((prev) =>
         prev.map((goal) => (goal.id === goalId ? data : goal))
       );
@@ -115,7 +115,7 @@ export function useGoals() {
 
       if (error) throw error;
 
-      // Remove from local state
+      // Remove from local state AFTER confirming DB success
       setGoals((prev) => prev.filter((goal) => goal.id !== goalId));
 
       return { error: null };

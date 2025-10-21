@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const [mode, setMode] = useState<'accountability' | 'irl'>('accountability');
   const [activeView, setActiveView] = useState<'feed' | 'chat'>('feed');
   const [showSidebar, setShowSidebar] = useState(false);
+  const [modeInitialized, setModeInitialized] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -23,12 +24,13 @@ export default function DashboardPage() {
     }
   }, [user, loading, router]);
 
-  // Sync mode with user profile
+  // Sync mode with user profile ONLY on initial load
   useEffect(() => {
-    if (profile) {
+    if (profile && !modeInitialized) {
       setMode(profile.accountability_mode ? 'accountability' : 'irl');
+      setModeInitialized(true);
     }
-  }, [profile]);
+  }, [profile, modeInitialized]);
 
   // Show loading state while checking auth
   if (loading) {

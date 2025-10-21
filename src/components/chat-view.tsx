@@ -11,12 +11,7 @@ import { motion } from 'framer-motion';
 export function ChatView() {
   const { user } = useAuth();
   const { threads, loading, error, sendMessage, markAsRead, unmatch } = useChats();
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      return null;
-    }
-    return threads[0]?.match.id || null;
-  });
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -27,10 +22,10 @@ export function ChatView() {
 
   // Auto-select first thread on desktop when threads load
   useEffect(() => {
-    if (!selectedThreadId && threads.length > 0 && window.innerWidth >= 768) {
+    if (!selectedThreadId && threads.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 768) {
       setSelectedThreadId(threads[0].match.id);
     }
-  }, [threads, selectedThreadId]);
+  }, [threads.length, selectedThreadId]); // Use threads.length instead of threads to avoid re-renders
 
   // Mark messages as read when thread is selected
   useEffect(() => {
