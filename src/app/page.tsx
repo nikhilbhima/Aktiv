@@ -30,22 +30,20 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Phase indicator */}
-          <div className="mt-12 p-6 rounded-xl gradient-card border border-border">
-            <p className="text-sm text-muted-foreground mb-2">
-              Phase 2: Dashboard UI
-            </p>
-            <h2 className="text-lg font-semibold">
-              Beautiful Static Interface ✓
-            </h2>
-            <ul className="mt-4 text-sm text-muted-foreground space-y-2 text-left">
-              <li>✓ Accountability/IRL mode toggle</li>
-              <li>✓ Filters sidebar with categories</li>
-              <li>✓ Profile & goal cards with progress</li>
-              <li>✓ Discovery feed with match scores</li>
-              <li>✓ Chat interface with message threads</li>
-              <li>✓ Smooth animations & micro-interactions</li>
-            </ul>
+          {/* Quick Links */}
+          <div className="mt-12 flex gap-4 justify-center">
+            <Link
+              href="/login"
+              className="px-6 py-3 rounded-lg border border-border hover:bg-accent transition-colors"
+            >
+              Login
+            </Link>
+            <Link
+              href="/signup"
+              className="px-6 py-3 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
+            >
+              Sign Up
+            </Link>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+// import { useAuth } from '@/contexts/AuthContext'; // TEMPORARILY DISABLED
 import { ModeToggle } from '@/components/mode-toggle';
 import { Sidebar } from '@/components/sidebar';
 import { FeedView } from '@/components/feed-view';
@@ -10,19 +10,32 @@ import { ChatView } from '@/components/chat-view';
 import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
-  const { user, profile, loading, signOut } = useAuth();
+  // MOCK AUTH FOR TESTING - NO LOGIN REQUIRED
+  const user = { id: 'test-user', email: 'test@aktiv.app' };
+  const profile = {
+    id: 'test-user',
+    full_name: 'Test User',
+    username: 'testuser',
+    accountability_mode: true,
+    streak_days: 12,
+    total_goals_completed: 8
+  };
+  const loading = false;
+  const signOut = async () => {};
+  // const { user, profile, loading, signOut } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<'accountability' | 'irl'>('accountability');
   const [activeView, setActiveView] = useState<'feed' | 'chat'>('feed');
   const [showSidebar, setShowSidebar] = useState(false);
   const [modeInitialized, setModeInitialized] = useState(false);
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
+  // AUTH COMPLETELY BYPASSED - NO LOGIN REQUIRED
+  // Redirect to login if not authenticated - TEMPORARILY DISABLED FOR TESTING
+  // useEffect(() => {
+  //   if (!loading && !user) {
+  //     router.push('/login');
+  //   }
+  // }, [user, loading, router]);
 
   // Sync mode with user profile ONLY on initial load
   useEffect(() => {
@@ -31,23 +44,6 @@ export default function DashboardPage() {
       setModeInitialized(true);
     }
   }, [profile, modeInitialized]);
-
-  // Show loading state while checking auth
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render if not authenticated (will redirect)
-  if (!user || !profile) {
-    return null;
-  }
 
   const handleSignOut = async () => {
     await signOut();
@@ -92,20 +88,20 @@ export default function DashboardPage() {
           <nav className="flex items-center gap-2 md:gap-4">
             <button
               onClick={() => setActiveView('feed')}
-              className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
+              className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors border ${
                 activeView === 'feed'
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-accent text-accent-foreground border-border/60'
+                  : 'text-muted-foreground hover:text-foreground border-transparent'
               }`}
             >
               Discover
             </button>
             <button
               onClick={() => setActiveView('chat')}
-              className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
+              className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors border ${
                 activeView === 'chat'
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-accent text-accent-foreground border-border/60'
+                  : 'text-muted-foreground hover:text-foreground border-transparent'
               }`}
             >
               Chats

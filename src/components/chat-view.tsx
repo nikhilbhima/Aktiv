@@ -4,13 +4,149 @@ import { useState, useEffect, useRef } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useChats } from '@/hooks/useChats';
-import { useAuth } from '@/contexts/AuthContext';
+// import { useChats } from '@/hooks/useChats';
+// import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 
+// DUMMY CHAT DATA FOR DESIGN PREVIEW
+const DUMMY_USER_ID = 'test-user';
+const DUMMY_THREADS = [
+  {
+    match: { id: 'match1' },
+    otherUser: {
+      id: 'u1',
+      full_name: 'Priya Sharma',
+      username: 'priya_fitness',
+    },
+    unreadCount: 2,
+    lastMessage: {
+      content: 'See you at the park tomorrow morning at 6!',
+      created_at: new Date(Date.now() - 5 * 60000).toISOString(),
+      sender_id: 'u1',
+    },
+    messages: [
+      {
+        id: 'm1',
+        content: "Hey! Thanks for connecting. I saw you're also working on the 5km running goal!",
+        sender_id: 'u1',
+        created_at: new Date(Date.now() - 2 * 24 * 60 * 60000).toISOString(),
+        is_read: true,
+      },
+      {
+        id: 'm2',
+        content: "Yes! I've been trying to stay consistent. How's your progress going?",
+        sender_id: DUMMY_USER_ID,
+        created_at: new Date(Date.now() - 2 * 24 * 60 * 60000 + 10 * 60000).toISOString(),
+        is_read: true,
+      },
+      {
+        id: 'm3',
+        content: "Pretty good! I've hit a 15-day streak. The hardest part is waking up early 😅",
+        sender_id: 'u1',
+        created_at: new Date(Date.now() - 2 * 24 * 60 * 60000 + 30 * 60000).toISOString(),
+        is_read: true,
+      },
+      {
+        id: 'm4',
+        content: "That's amazing! Early mornings are definitely tough. Do you run outdoors or on a treadmill?",
+        sender_id: DUMMY_USER_ID,
+        created_at: new Date(Date.now() - 1 * 24 * 60 * 60000).toISOString(),
+        is_read: true,
+      },
+      {
+        id: 'm5',
+        content: "Outdoors! There's a nice park near Koramangala. Makes it way more enjoyable than the gym.",
+        sender_id: 'u1',
+        created_at: new Date(Date.now() - 1 * 24 * 60 * 60000 + 5 * 60000).toISOString(),
+        is_read: true,
+      },
+      {
+        id: 'm6',
+        content: 'See you at the park tomorrow morning at 6!',
+        sender_id: 'u1',
+        created_at: new Date(Date.now() - 5 * 60000).toISOString(),
+        is_read: false,
+      },
+    ],
+  },
+  {
+    match: { id: 'match2' },
+    otherUser: {
+      id: 'u2',
+      full_name: 'Rahul Verma',
+      username: 'codeandcreate',
+    },
+    unreadCount: 0,
+    lastMessage: {
+      content: "Thanks! I'll check it out tonight.",
+      created_at: new Date(Date.now() - 3 * 60 * 60000).toISOString(),
+      sender_id: DUMMY_USER_ID,
+    },
+    messages: [
+      {
+        id: 'm7',
+        content: "Hey! Saw you're learning DSA too. Which platform are you using?",
+        sender_id: 'u2',
+        created_at: new Date(Date.now() - 5 * 60 * 60000).toISOString(),
+        is_read: true,
+      },
+      {
+        id: 'm8',
+        content: "Hey Rahul! I'm using LeetCode mostly. What about you?",
+        sender_id: DUMMY_USER_ID,
+        created_at: new Date(Date.now() - 4 * 60 * 60000).toISOString(),
+        is_read: true,
+      },
+      {
+        id: 'm9',
+        content: "Same! I've been focusing on Blind 75. There's also this great YouTube channel called NeetCode that explains patterns really well.",
+        sender_id: 'u2',
+        created_at: new Date(Date.now() - 4 * 60 * 60000 + 10 * 60000).toISOString(),
+        is_read: true,
+      },
+      {
+        id: 'm10',
+        content: "Thanks! I'll check it out tonight.",
+        sender_id: DUMMY_USER_ID,
+        created_at: new Date(Date.now() - 3 * 60 * 60000).toISOString(),
+        is_read: true,
+      },
+    ],
+  },
+  {
+    match: { id: 'match3' },
+    otherUser: {
+      id: 'u3',
+      full_name: 'Ananya Patel',
+      username: 'mindful_ananya',
+    },
+    unreadCount: 0,
+    lastMessage: {
+      content: 'Namaste! 🙏 Happy to connect.',
+      created_at: new Date(Date.now() - 24 * 60 * 60000).toISOString(),
+      sender_id: 'u3',
+    },
+    messages: [
+      {
+        id: 'm11',
+        content: 'Namaste! 🙏 Happy to connect.',
+        sender_id: 'u3',
+        created_at: new Date(Date.now() - 24 * 60 * 60000).toISOString(),
+        is_read: true,
+      },
+    ],
+  },
+];
+
 export function ChatView() {
-  const { user } = useAuth();
-  const { threads, loading, error, sendMessage, markAsRead, unmatch } = useChats();
+  // TEMPORARILY USING DUMMY DATA
+  const user = { id: DUMMY_USER_ID };
+  const threads = DUMMY_THREADS;
+  const loading = false;
+  const error = null;
+
+  // const { user } = useAuth();
+  // const { threads, loading, error, sendMessage, markAsRead, unmatch } = useChats();
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -27,6 +163,11 @@ export function ChatView() {
     }
   }, [threads.length, selectedThreadId]); // Use threads.length instead of threads to avoid re-renders
 
+  // DUMMY: Mock markAsRead function
+  const markAsRead = async (messageIds: string[]) => {
+    // Silently do nothing - we're using dummy data
+  };
+
   // Mark messages as read when thread is selected
   useEffect(() => {
     if (selectedThread && selectedThread.unreadCount > 0) {
@@ -39,9 +180,11 @@ export function ChatView() {
     }
   }, [selectedThreadId, selectedThread]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change - only within container, not the whole page
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }, [selectedThread?.messages]);
 
   const formatTimestamp = (timestamp: string) => {
@@ -61,27 +204,18 @@ export function ChatView() {
     if (!messageInput.trim() || !selectedThreadId) return;
 
     setSending(true);
-    const { error: sendError } = await sendMessage(
-      selectedThreadId,
-      messageInput.trim()
-    );
-
-    if (sendError) {
-      alert(`Error: ${sendError}`);
-    } else {
-      setMessageInput('');
-    }
+    // DUMMY: Simulate sending message
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setMessageInput('');
     setSending(false);
   };
 
   const handleUnmatch = async (matchId: string) => {
     if (confirm('Are you sure you want to unmatch? This action cannot be undone.')) {
-      const { error: unmatchError } = await unmatch(matchId);
-      if (unmatchError) {
-        alert(`Error: ${unmatchError}`);
-      } else {
-        setSelectedThreadId(null);
-      }
+      // DUMMY: Simulate unmatch
+      await new Promise(resolve => setTimeout(resolve, 500));
+      alert('Unmatched successfully');
+      setSelectedThreadId(null);
     }
   };
 

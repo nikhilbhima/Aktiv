@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error
       setProfile(data)
     } catch (error) {
-      console.error('Error fetching profile:', error)
+      // Silently fail - we're using dummy data for now
       setProfile(null)
     }
   }

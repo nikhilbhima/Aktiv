@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
-import { useGoals } from '@/hooks/useGoals';
+// import { useAuth } from '@/contexts/AuthContext';
+// import { useGoals } from '@/hooks/useGoals';
 import { GoalDialog } from '@/components/goal-dialog';
 import type { Goal } from '@/types/database.types';
 
@@ -28,9 +28,74 @@ const categories: { value: GoalCategory; label: string; icon: string }[] = [
   { value: 'other', label: 'Other', icon: '📌' },
 ];
 
+// DUMMY DATA FOR DESIGN PREVIEW
+const DUMMY_PROFILE = {
+  streak_days: 12,
+  total_goals_completed: 8,
+};
+
+const DUMMY_GOALS: Goal[] = [
+  {
+    id: 'goal1',
+    user_id: 'test-user',
+    title: 'Run 5km daily',
+    description: 'Morning run to stay fit and energized',
+    category: 'fitness',
+    frequency: 'daily',
+    target_value: null,
+    current_progress: null,
+    status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'goal2',
+    user_id: 'test-user',
+    title: 'Read before bed',
+    description: '30 mins of reading every night',
+    category: 'reading',
+    frequency: 'daily',
+    target_value: null,
+    current_progress: null,
+    status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'goal3',
+    user_id: 'test-user',
+    title: 'Meditate 10 mins',
+    description: 'Morning meditation practice',
+    category: 'mindfulness',
+    frequency: 'daily',
+    target_value: null,
+    current_progress: null,
+    status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'goal4',
+    user_id: 'test-user',
+    title: 'Learn DSA - 2 problems',
+    description: 'Solve 2 LeetCode problems daily',
+    category: 'learning',
+    frequency: 'daily',
+    target_value: null,
+    current_progress: null,
+    status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export function Sidebar({ mode, onClose }: SidebarProps) {
-  const { profile } = useAuth();
-  const { goals, createGoal, updateGoal, deleteGoal } = useGoals();
+  // TEMPORARILY USING DUMMY DATA
+  const profile = DUMMY_PROFILE;
+  const goals = DUMMY_GOALS;
+
+  // const { profile } = useAuth();
+  // const { goals, createGoal, updateGoal, deleteGoal } = useGoals();
   const [selectedCategories, setSelectedCategories] = useState<GoalCategory[]>([]);
   const [maxDistance, setMaxDistance] = useState<number>(25);
   const [showGoalDialog, setShowGoalDialog] = useState(false);
@@ -58,19 +123,17 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
 
   const handleDeleteGoal = async (goalId: string) => {
     if (confirm('Are you sure you want to delete this goal?')) {
-      const { error } = await deleteGoal(goalId);
-      if (error) {
-        alert(`Failed to delete goal: ${error}`);
-      }
+      // DUMMY: Simulate delete
+      alert('Goal deleted successfully!');
     }
   };
 
   const handleGoalSubmit = async (goalData: any) => {
-    if (editingGoal) {
-      return await updateGoal(editingGoal.id, goalData);
-    } else {
-      return await createGoal(goalData);
-    }
+    // DUMMY: Simulate create/update
+    await new Promise(resolve => setTimeout(resolve, 500));
+    alert(editingGoal ? 'Goal updated!' : 'Goal created!');
+    setShowGoalDialog(false);
+    return { error: null };
   };
 
   return (
@@ -242,14 +305,6 @@ export function Sidebar({ mode, onClose }: SidebarProps) {
               </span>
             </div>
           </div>
-        </div>
-
-        {/* Motivational Quote */}
-        <div className="rounded-xl border border-border/40 bg-gradient-to-br from-orange-500/10 to-amber-500/10 p-6">
-          <p className="text-sm italic text-muted-foreground">
-            &ldquo;The secret of getting ahead is getting started.&rdquo;
-          </p>
-          <p className="text-xs text-muted-foreground mt-2">— Mark Twain</p>
         </div>
       </div>
 
