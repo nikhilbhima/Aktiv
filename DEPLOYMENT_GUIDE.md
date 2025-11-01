@@ -29,18 +29,32 @@ This guide will walk you through deploying your Aktiv app to production using Su
 
 ### Step 3: Run Database Migrations
 
+**IMPORTANT: Run these in order!**
+
+#### 3a. Run Main Setup SQL
+
 1. In Supabase dashboard, go to **SQL Editor**
 2. Click **"New Query"**
 3. Open the file `/supabase-setup.sql` from your project
 4. Copy ALL the contents
 5. Paste into the SQL Editor
 6. Click **"Run"** or press `Ctrl/Cmd + Enter`
-7. You should see "Success. No rows returned" (this is good!)
+7. You should see "Success" message
 
-**What this does:**
-- Creates all database tables (users, goals, matches, messages, etc.)
+#### 3b. Run Critical Fixes SQL
+
+1. Click **"New Query"** again
+2. Open the file `/CRITICAL_FIXES.sql` from your project
+3. Copy ALL the contents
+4. Paste into the SQL Editor
+5. Click **"Run"** or press `Ctrl/Cmd + Enter`
+6. You should see "All critical tables verified ✓" message
+
+**What these do:**
+- Creates all database tables (users, goals, matches, messages, notifications, etc.)
 - Sets up Row Level Security (RLS) policies
-- Creates database functions and triggers
+- Creates database functions (calculate_match_score, distance calculation)
+- Creates triggers for auto-notifications
 - Configures storage buckets for images
 
 ### Step 4: Create Storage Buckets
