@@ -1,49 +1,35 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-// import { useAuth } from '@/contexts/AuthContext'; // TEMPORARILY DISABLED
+import { useAuth } from '@/contexts/AuthContext';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Sidebar } from '@/components/sidebar';
 import { FeedView } from '@/components/feed-view';
 import { ChatView } from '@/components/chat-view';
+import { CalendarView } from '@/components/calendar-view';
+import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Settings, User, Target } from 'lucide-react';
 
 export default function DashboardPage() {
-  // MOCK AUTH FOR TESTING - NO LOGIN REQUIRED
-  const user = { id: 'test-user', email: 'test@aktiv.app' };
-  const profile = {
-    id: 'test-user',
-    full_name: 'Test User',
-    username: 'testuser',
-    accountability_mode: true,
-    streak_days: 12,
-    total_goals_completed: 8
-  };
-  const loading = false;
-  const signOut = async () => {};
-  // const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const router = useRouter();
-  const [mode, setMode] = useState<'accountability' | 'irl'>('accountability');
-  const [activeView, setActiveView] = useState<'feed' | 'chat'>('feed');
+  const [activeView, setActiveView] = useState<'feed' | 'chat' | 'calendar'>('feed');
   const [showSidebar, setShowSidebar] = useState(false);
-  const [modeInitialized, setModeInitialized] = useState(false);
 
-  // AUTH COMPLETELY BYPASSED - NO LOGIN REQUIRED
-  // Redirect to login if not authenticated - TEMPORARILY DISABLED FOR TESTING
-  // useEffect(() => {
-  //   if (!loading && !user) {
-  //     router.push('/login');
-  //   }
-  // }, [user, loading, router]);
-
-  // Sync mode with user profile ONLY on initial load
-  useEffect(() => {
-    if (profile && !modeInitialized) {
-      setMode(profile.accountability_mode ? 'accountability' : 'irl');
-      setModeInitialized(true);
-    }
-  }, [profile, modeInitialized]);
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Logo className="w-16 h-16 mx-auto animate-pulse" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSignOut = async () => {
     await signOut();
@@ -77,11 +63,11 @@ export default function DashboardPage() {
               </svg>
             </button>
 
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-              Aktiv
-            </h1>
-            <div className="hidden md:block">
-              <ModeToggle mode={mode} onModeChange={setMode} />
+            <div className="flex items-center gap-2">
+              <Logo className="w-8 h-8 md:w-10 md:h-10" />
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+                Aktiv
+              </h1>
             </div>
           </div>
 
@@ -91,7 +77,7 @@ export default function DashboardPage() {
               className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors border ${
                 activeView === 'feed'
                   ? 'bg-accent text-accent-foreground border-border/60'
-                  : 'text-muted-foreground hover:text-foreground border-transparent'
+                  : 'text-muted-foreground hover:text-foreground border-border/60'
               }`}
             >
               Discover
@@ -101,33 +87,67 @@ export default function DashboardPage() {
               className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors border ${
                 activeView === 'chat'
                   ? 'bg-accent text-accent-foreground border-border/60'
-                  : 'text-muted-foreground hover:text-foreground border-transparent'
+                  : 'text-muted-foreground hover:text-foreground border-border/60'
               }`}
             >
               Chats
             </button>
+            <button
+              onClick={() => setActiveView('calendar')}
+              className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors border ${
+                activeView === 'calendar'
+                  ? 'bg-accent text-accent-foreground border-border/60'
+                  : 'text-muted-foreground hover:text-foreground border-border/60'
+              }`}
+            >
+              Calendar
+            </button>
 
             {/* User Menu */}
             <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border/40">
-              <div className="hidden md:flex flex-col items-end">
-                <span className="text-sm font-medium">{profile.full_name}</span>
-                <span className="text-xs text-muted-foreground">@{profile.username}</span>
-              </div>
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-                className="text-xs"
+                size="icon"
+                onClick={() => router.push('/matches')}
+                className="h-9 w-9"
+                title="Matches"
               >
-                Sign Out
+                <User className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push('/goals')}
+                className="h-9 w-9"
+                title="My Goals"
+              >
+                <Target className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push('/settings')}
+                className="h-9 w-9"
+                title="Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push('/profile')}
+                className="h-9 w-9 p-0"
+                title="Profile"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile?.avatar_url || ''} />
+                  <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                    {profile?.full_name?.split(' ').map((n) => n[0]).join('').toUpperCase() || '??'}
+                  </AvatarFallback>
+                </Avatar>
               </Button>
             </div>
           </nav>
-        </div>
-
-        {/* Mobile Mode Toggle */}
-        <div className="md:hidden border-t border-border/40 px-4 py-3">
-          <ModeToggle mode={mode} onModeChange={setMode} />
         </div>
       </header>
 
@@ -150,15 +170,17 @@ export default function DashboardPage() {
             ${showSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           `}
         >
-          <Sidebar mode={mode} onClose={() => setShowSidebar(false)} />
+          <Sidebar onClose={() => setShowSidebar(false)} />
         </div>
 
         {/* Main Content */}
         <main className="flex-1 min-w-0">
           {activeView === 'feed' ? (
-            <FeedView mode={mode} />
-          ) : (
+            <FeedView />
+          ) : activeView === 'chat' ? (
             <ChatView />
+          ) : (
+            <CalendarView />
           )}
         </main>
       </div>

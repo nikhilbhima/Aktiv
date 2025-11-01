@@ -1,10 +1,8 @@
-import { type NextRequest, NextResponse } from 'next/server'
-// import { updateSession } from '@/lib/supabase/middleware' // TEMPORARILY DISABLED FOR TESTING
+import { type NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  // BYPASS AUTH - ALLOW ALL REQUESTS
-  return NextResponse.next()
-  // return await updateSession(request)
+  return await updateSession(request)
 }
 
 export const config = {

@@ -1,12 +1,13 @@
 {
   "name": "Aktiv - Find Real Accountability Partners",
   "short_name": "Aktiv",
-  "description": "Find real people to stay accountable with your goals",
+  "description": "Find real people to stay accountable with your goals. Track progress, connect with partners, achieve together.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0f0f",
-  "theme_color": "#0f0f0f",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
   "orientation": "portrait-primary",
+  "categories": ["health", "lifestyle", "productivity", "social"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -19,6 +20,26 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Goals",
+      "short_name": "Goals",
+      "description": "View and manage your goals",
+      "url": "/goals"
+    },
+    {
+      "name": "Find Matches",
+      "short_name": "Matches",
+      "description": "Discover accountability partners",
+      "url": "/matches"
+    },
+    {
+      "name": "Profile",
+      "short_name": "Profile",
+      "description": "View your profile",
+      "url": "/profile"
     }
   ]
 }

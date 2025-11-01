@@ -17,7 +17,7 @@ export function useGoals() {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError} = await supabase
         .from('goals')
         .select('*')
         .eq('user_id', user.id)
@@ -32,7 +32,7 @@ export function useGoals() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase]);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -48,9 +48,9 @@ export function useGoals() {
     if (!user) return { error: 'Not authenticated' };
 
     try {
-      // @ts-ignore - Type mismatch with Supabase generics
       const { data, error } = await supabase
         .from('goals')
+        // @ts-expect-error - Supabase Insert type inference issue
         .insert({
           ...goalData,
           user_id: user.id,
@@ -77,9 +77,9 @@ export function useGoals() {
     if (!user) return { error: 'Not authenticated' };
 
     try {
-      // @ts-ignore - Type mismatch with Supabase generics
       const { data, error } = await supabase
         .from('goals')
+        // @ts-expect-error - Supabase Update type inference issue
         .update(updates)
         .eq('id', goalId)
         .eq('user_id', user.id)

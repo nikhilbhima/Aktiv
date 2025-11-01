@@ -375,6 +375,22 @@ export interface Database {
           shared_categories: string[]
         }[]
       }
+      find_unified_matches: {
+        Args: {
+          for_user_id: string
+          limit_count?: number
+        }
+        Returns: {
+          user_id: string
+          username: string
+          full_name: string
+          avatar_url: string | null
+          bio: string | null
+          distance_km: number | null
+          match_score: number
+          shared_categories: string[]
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

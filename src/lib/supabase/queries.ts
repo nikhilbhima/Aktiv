@@ -87,22 +87,17 @@ export async function findIRLMatches(supabase: SupabaseClient, userId: string, m
   return await supabase.rpc('find_irl_matches', { for_user_id: userId, max_distance_meters: maxDistanceKm * 1000, limit_count: limit })
 }
 
-export async function getIRLActivities(supabase: SupabaseClient, filters?: any) {
-  let query = supabase.from('irl_activities').select('*, creator:users!irl_activities_creator_id_fkey (*)').order('scheduled_at', { ascending: true })
-  if (filters?.category) query = query.eq('category', filters.category)
-  if (filters?.status) query = query.eq('status', filters.status)
-  if (filters?.futureOnly) query = query.gte('scheduled_at', new Date().toISOString())
-  return await query
+// IRL Activities removed - now using unified approach with optional location filtering
+
+export async function deleteGoal(supabase: SupabaseClient, goalId: string) {
+  return await supabase.from('goals').delete().eq('id', goalId)
 }
 
-export async function createIRLActivity(supabase: SupabaseClient, activity: any) {
-  return await supabase.from('irl_activities').insert(activity).select().single()
-}
-
-export async function joinIRLActivity(supabase: SupabaseClient, activityId: string, userId: string) {
-  return await supabase.from('irl_activity_participants').insert({ activity_id: activityId, user_id: userId, status: 'confirmed' }).select().single()
-}
-
-export async function leaveIRLActivity(supabase: SupabaseClient, activityId: string, userId: string) {
-  return await supabase.from('irl_activity_participants').delete().eq('activity_id', activityId).eq('user_id', userId)
+export async function createReport(supabase: SupabaseClient, reporterId: string, reportedUserId: string, reason: string, details?: string) {
+  return await supabase.from('reports').insert({
+    reporter_id: reporterId,
+    reported_user_id: reportedUserId,
+    reason,
+    details: details || null
+  }).select().single()
 }

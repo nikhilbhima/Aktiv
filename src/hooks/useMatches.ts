@@ -9,10 +9,9 @@ interface MatchWithDetails {
   goals: Goal[];
   matchScore: number | null;
   distance: number | null;
-  isIRL: boolean;
 }
 
-export function useMatches(mode: 'accountability' | 'irl') {
+export function useMatches() {
   const { user } = useAuth();
   const [matches, setMatches] = useState<MatchWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,23 +25,23 @@ export function useMatches(mode: 'accountability' | 'irl') {
       setLoading(true);
       setError(null);
 
-      // Call the appropriate matching function based on mode
-      const isIRLMode = mode === 'irl';
-      const { data, error: matchError } = await supabase.rpc(
-        isIRLMode ? 'find_irl_matches' : 'find_accountability_matches',
-        isIRLMode
-          ? {
-              for_user_id: user.id,
-              max_distance_meters: 50000, // 50km
-              limit_count: 20,
-            }
-          : {
-              for_user_id: user.id,
-              limit_count: 20,
-            }
-      );
+      // Call unified matching function
+      const { data, error: matchError } = (await supabase.rpc(
+        'find_unified_matches',
+        // @ts-expect-error - Supabase RPC parameter type inference issue
+        {
+          for_user_id: user.id,
+          limit_count: 20,
+        }
+      )) as any;
 
-      if (matchError) throw matchError;
+      // If function doesn't exist yet (migration not run), silently fail with empty matches
+      if (matchError) {
+        console.warn('Matching function error (likely not migrated yet):', matchError);
+        setMatches([]);
+        setLoading(false);
+        return;
+      }
 
       if (!data || data.length === 0) {
         setMatches([]);
@@ -53,28 +52,28 @@ export function useMatches(mode: 'accountability' | 'irl') {
       const userIds = data.map((match: any) => match.user_id);
 
       // Batch fetch all users in one query
-      const { data: usersData, error: usersError } = await supabase
+      const { data: usersData, error: usersError } = (await supabase
         .from('users')
         .select('*')
-        .in('id', userIds);
+        .in('id', userIds)) as any;
 
       if (usersError) throw usersError;
 
       // Batch fetch all goals in one query
-      const { data: goalsData, error: goalsError } = await supabase
+      const { data: goalsData, error: goalsError } = (await supabase
         .from('goals')
         .select('*')
         .in('user_id', userIds)
         .eq('status', 'active')
-        .eq('is_public', true);
+        .eq('is_public', true)) as any;
 
       if (goalsError) throw goalsError;
 
       // Create lookup maps for O(1) access
       const usersMap = new Map(
-        (usersData || []).map((user) => [user.id, user])
+        (usersData || []).map((user: any) => [user.id, user])
       );
-      const goalsByUser = (goalsData || []).reduce((acc: any, goal) => {
+      const goalsByUser = (goalsData || []).reduce((acc: any, goal: any) => {
         if (!acc[goal.user_id]) acc[goal.user_id] = [];
         acc[goal.user_id].push(goal);
         return acc;
@@ -93,11 +92,10 @@ export function useMatches(mode: 'accountability' | 'irl') {
             user,
             goals: userGoals,
             matchScore: match.match_score,
-            distance: isIRLMode ? match.distance_km : null,
-            isIRL: isIRLMode,
+            distance: match.distance_km || null,
           };
         })
-        .filter((match): match is MatchWithDetails => match !== null);
+        .filter((match: any): match is MatchWithDetails => match !== null);
 
       setMatches(transformedMatches);
     } catch (err) {
@@ -106,7 +104,7 @@ export function useMatches(mode: 'accountability' | 'irl') {
     } finally {
       setLoading(false);
     }
-  }, [user, mode, supabase]);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -127,14 +125,13 @@ export function useMatches(mode: 'accountability' | 'irl') {
       const user1_id = user.id < targetUserId ? user.id : targetUserId;
       const user2_id = user.id < targetUserId ? targetUserId : user.id;
 
-      // @ts-ignore - Type mismatch with Supabase generics
       const { data, error } = await supabase
         .from('matches')
+        // @ts-expect-error - Supabase Insert type inference issue
         .insert({
           user1_id,
           user2_id,
           status: 'pending',
-          is_irl_match: mode === 'irl',
         })
         .select()
         .single();

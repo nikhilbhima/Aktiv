@@ -26,11 +26,11 @@ export function useChats() {
       setError(null);
 
       // Get all accepted matches for the current user
-      const { data: matches, error: matchesError } = await supabase
+      const { data: matches, error: matchesError } = (await supabase
         .from('matches')
         .select('*')
         .eq('status', 'accepted')
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)) as any;
 
       if (matchesError) throw matchesError;
 
@@ -40,33 +40,33 @@ export function useChats() {
       }
 
       // Extract all other user IDs and match IDs
-      const otherUserIds = matches.map((match) =>
+      const otherUserIds = matches.map((match: any) =>
         match.user1_id === user.id ? match.user2_id : match.user1_id
       );
-      const matchIds = matches.map((match) => match.id);
+      const matchIds = matches.map((match: any) => match.id);
 
       // Batch fetch all users in one query
-      const { data: usersData, error: usersError } = await supabase
+      const { data: usersData, error: usersError } = (await supabase
         .from('users')
         .select('*')
-        .in('id', otherUserIds);
+        .in('id', otherUserIds)) as any;
 
       if (usersError) throw usersError;
 
       // Batch fetch all messages in one query
-      const { data: allMessages, error: messagesError } = await supabase
+      const { data: allMessages, error: messagesError } = (await supabase
         .from('messages')
         .select('*')
         .in('match_id', matchIds)
-        .order('created_at', { ascending: true });
+        .order('sent_at', { ascending: true })) as any;
 
       if (messagesError) throw messagesError;
 
       // Create lookup maps
       const usersMap = new Map(
-        (usersData || []).map((user) => [user.id, user])
+        (usersData || []).map((user: any) => [user.id, user])
       );
-      const messagesByMatch = (allMessages || []).reduce((acc: any, message) => {
+      const messagesByMatch = (allMessages || []).reduce((acc: any, message: any) => {
         if (!acc[message.match_id]) acc[message.match_id] = [];
         acc[message.match_id].push(message);
         return acc;
@@ -74,7 +74,7 @@ export function useChats() {
 
       // Build threads
       const threadsData = matches
-        .map((match) => {
+        .map((match: any) => {
           const otherUserId =
             match.user1_id === user.id ? match.user2_id : match.user1_id;
           const otherUser = usersMap.get(otherUserId);
@@ -101,12 +101,12 @@ export function useChats() {
             lastMessage,
           };
         })
-        .filter((thread): thread is ChatThread => thread !== null);
+        .filter((thread: any): thread is ChatThread => thread !== null);
 
       // Sort by last message time (most recent first)
-      threadsData.sort((a, b) => {
-        const aTime = a.lastMessage?.created_at || a.match.created_at;
-        const bTime = b.lastMessage?.created_at || b.match.created_at;
+      threadsData.sort((a: any, b: any) => {
+        const aTime = a.lastMessage?.sent_at || a.match.matched_at;
+        const bTime = b.lastMessage?.sent_at || b.match.matched_at;
         return new Date(bTime).getTime() - new Date(aTime).getTime();
       });
 
@@ -117,7 +117,7 @@ export function useChats() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase]);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -193,7 +193,7 @@ export function useChats() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchChats, supabase]);
+  }, [user, fetchChats]);
 
   const sendMessage = async (matchId: string, content: string) => {
     if (!user) return { error: 'Not authenticated' };
@@ -205,7 +205,8 @@ export function useChats() {
       sender_id: user.id,
       content,
       is_read: false,
-      created_at: new Date().toISOString(),
+      sent_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       read_at: null,
     };
 
@@ -223,10 +224,10 @@ export function useChats() {
       })
     );
 
-    try {
-      // @ts-ignore - Type mismatch with Supabase generics
+    try{
       const { data, error } = await supabase
         .from('messages')
+        // @ts-expect-error - Supabase Insert type inference issue
         .insert({
           match_id: matchId,
           sender_id: user.id,
@@ -289,9 +290,9 @@ export function useChats() {
     if (!user || messageIds.length === 0) return;
 
     try {
-      // @ts-ignore - Type mismatch with Supabase generics
       const { error } = await supabase
         .from('messages')
+        // @ts-expect-error - Supabase Update type inference issue
         .update({ is_read: true, read_at: new Date().toISOString() })
         .in('id', messageIds)
         .neq('sender_id', user.id); // Only mark messages sent by others
@@ -326,9 +327,9 @@ export function useChats() {
 
     try {
       // Update match status to blocked
-      // @ts-ignore - Type mismatch with Supabase generics
       const { error } = await supabase
         .from('matches')
+        // @ts-expect-error - Supabase Update type inference issue
         .update({ status: 'blocked' })
         .eq('id', matchId);
 

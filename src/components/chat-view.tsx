@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-// import { useChats } from '@/hooks/useChats';
-// import { useAuth } from '@/contexts/AuthContext';
+import { useChats } from '@/hooks/useChats';
+import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 
 // DUMMY CHAT DATA FOR DESIGN PREVIEW
@@ -139,14 +139,9 @@ const DUMMY_THREADS = [
 ];
 
 export function ChatView() {
-  // TEMPORARILY USING DUMMY DATA
-  const user = { id: DUMMY_USER_ID };
-  const threads = DUMMY_THREADS;
-  const loading = false;
-  const error = null;
-
-  // const { user } = useAuth();
-  // const { threads, loading, error, sendMessage, markAsRead, unmatch } = useChats();
+  // Using real data from Supabase
+  const { user } = useAuth();
+  const { threads, loading, error, sendMessage, markAsRead, unmatch } = useChats();
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -163,11 +158,6 @@ export function ChatView() {
     }
   }, [threads.length, selectedThreadId]); // Use threads.length instead of threads to avoid re-renders
 
-  // DUMMY: Mock markAsRead function
-  const markAsRead = async (messageIds: string[]) => {
-    // Silently do nothing - we're using dummy data
-  };
-
   // Mark messages as read when thread is selected
   useEffect(() => {
     if (selectedThread && selectedThread.unreadCount > 0) {
@@ -178,7 +168,7 @@ export function ChatView() {
         markAsRead(unreadMessageIds);
       }
     }
-  }, [selectedThreadId, selectedThread]);
+  }, [selectedThreadId, selectedThread, markAsRead, user]);
 
   // Scroll to bottom when messages change - only within container, not the whole page
   useEffect(() => {
@@ -204,18 +194,24 @@ export function ChatView() {
     if (!messageInput.trim() || !selectedThreadId) return;
 
     setSending(true);
-    // DUMMY: Simulate sending message
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setMessageInput('');
+    const result = await sendMessage(selectedThreadId, messageInput.trim());
+    if (result.error) {
+      alert(`Error sending message: ${result.error}`);
+    } else {
+      setMessageInput('');
+    }
     setSending(false);
   };
 
   const handleUnmatch = async (matchId: string) => {
     if (confirm('Are you sure you want to unmatch? This action cannot be undone.')) {
-      // DUMMY: Simulate unmatch
-      await new Promise(resolve => setTimeout(resolve, 500));
-      alert('Unmatched successfully');
-      setSelectedThreadId(null);
+      const result = await unmatch(matchId);
+      if (result.error) {
+        alert(`Error unmatching: ${result.error}`);
+      } else {
+        alert('Unmatched successfully');
+        setSelectedThreadId(null);
+      }
     }
   };
 
@@ -299,7 +295,7 @@ export function ChatView() {
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {thread.lastMessage
-                    ? formatTimestamp(thread.lastMessage.created_at)
+                    ? formatTimestamp(thread.lastMessage.sent_at)
                     : ''}
                 </p>
               </div>
@@ -392,7 +388,7 @@ export function ChatView() {
                               : 'text-muted-foreground'
                           }`}
                         >
-                          {formatTimestamp(message.created_at)}
+                          {formatTimestamp(message.sent_at)}
                         </p>
                       </div>
                     </motion.div>

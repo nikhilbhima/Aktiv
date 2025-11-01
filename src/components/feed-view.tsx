@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-// import { useMatches } from '@/hooks/useMatches';
+import { useMatches } from '@/hooks/useMatches';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 
 interface FeedViewProps {
-  mode: 'accountability' | 'irl';
+  // No mode needed - unified feed
 }
 
 // DUMMY DATA FOR DESIGN PREVIEW
@@ -124,20 +124,19 @@ const DUMMY_MATCHES = {
   ],
 };
 
-export function FeedView({ mode }: FeedViewProps) {
-  // TEMPORARILY USING DUMMY DATA
-  const matches = DUMMY_MATCHES[mode];
-  const loading = false;
-  const error = null;
-
-  // const { matches, loading, error, sendMatchRequest } = useMatches(mode);
+export function FeedView({}: FeedViewProps) {
+  // Using real data from Supabase
+  const { matches, loading, error, sendMatchRequest } = useMatches();
   const [sendingRequestTo, setSendingRequestTo] = useState<string | null>(null);
 
   const handleSendRequest = async (userId: string) => {
     setSendingRequestTo(userId);
-    // DUMMY: Simulate sending request
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    alert('Connection request sent!');
+    const result = await sendMatchRequest(userId);
+    if (result.error) {
+      alert(`Error: ${result.error}`);
+    } else {
+      alert('Connection request sent!');
+    }
     setSendingRequestTo(null);
   };
 
@@ -173,9 +172,7 @@ export function FeedView({ mode }: FeedViewProps) {
             No matches found yet
           </h2>
           <p className="text-muted-foreground max-w-md">
-            {mode === 'irl'
-              ? "We're looking for people near you with similar goals. Try adjusting your filters or expanding your distance range."
-              : "We're finding people who share your goals and can keep you accountable. Check back soon!"}
+            We're finding people who share your goals and can keep you accountable. Try adjusting your filters or check back soon!
           </p>
         </motion.div>
       </div>
@@ -184,11 +181,105 @@ export function FeedView({ mode }: FeedViewProps) {
 
   return (
     <div className="space-y-6">
+      {/* Stats Dashboard */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        {/* Streak Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-4 shadow-lg hover:shadow-xl transition-all duration-300"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              </div>
+              <span className="text-xs font-medium text-white/90 uppercase tracking-wider">Streak</span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl md:text-4xl font-bold text-white">12</span>
+              <span className="text-sm text-white/80">days</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Goals Completed Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.05 }}
+          className="group relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 border border-border/60 p-4 shadow-md hover:shadow-lg transition-all duration-300"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Completed</span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl md:text-4xl font-bold text-foreground">8</span>
+              <span className="text-sm text-muted-foreground">goals</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Active Goals Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="group relative overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 border border-border/60 p-4 shadow-md hover:shadow-lg transition-all duration-300"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active</span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl md:text-4xl font-bold text-foreground">4</span>
+              <span className="text-sm text-muted-foreground">goals</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Add Goal Button Card */}
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.15 }}
+          onClick={() => alert('Add goal modal coming soon!')}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-white to-orange-50/50 dark:from-zinc-900 dark:to-orange-950/20 border-2 border-dashed border-orange-300 dark:border-orange-700 hover:border-orange-400 dark:hover:border-orange-600 p-4 shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10 flex flex-col items-center justify-center h-full">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">Add Goal</span>
+          </div>
+        </motion.button>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold mb-1">
-            {mode === 'irl' ? 'Nearby Matches' : 'Accountability Partners'}
+            Discover Partners
           </h2>
           <p className="text-muted-foreground">
             {matches.length} {matches.length === 1 ? 'person' : 'people'} found
