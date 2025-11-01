@@ -63,11 +63,40 @@ export function useCheckins() {
       note?: string;
       proof_url?: string;
       mood?: CheckinMood;
+      imageFile?: File;
     }
   ) => {
     if (!user) return { error: 'Not authenticated' };
 
     try {
+      let proofUrl = data.proof_url;
+
+      // Upload image if provided
+      if (data.imageFile) {
+        const fileExt = data.imageFile.name.split('.').pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const filePath = `checkins/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('checkins')
+          .upload(filePath, data.imageFile, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw new Error('Failed to upload image');
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('checkins')
+          .getPublicUrl(filePath);
+
+        proofUrl = publicUrl;
+      }
+
       const { data: checkin, error } = await supabase
         .from('checkins')
         // @ts-expect-error - Supabase Insert type inference issue
@@ -75,7 +104,7 @@ export function useCheckins() {
           goal_id: goalId,
           user_id: user.id,
           note: data.note || null,
-          proof_url: data.proof_url || null,
+          proof_url: proofUrl || null,
           mood: data.mood || null,
           completed_at: new Date().toISOString(),
         })

@@ -9,13 +9,16 @@ import { FeedView } from '@/components/feed-view';
 import { ChatView } from '@/components/chat-view';
 import { CalendarView } from '@/components/calendar-view';
 import { Logo } from '@/components/logo';
+import { NotificationsDropdown } from '@/components/notifications-dropdown';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Settings, User, Target } from 'lucide-react';
+import { Settings, User, Target, Inbox } from 'lucide-react';
+import { useRequests } from '@/hooks/useRequests';
 
 export default function DashboardPage() {
   const { user, profile, loading, signOut } = useAuth();
   const router = useRouter();
+  const { requests } = useRequests(user?.id);
   const [activeView, setActiveView] = useState<'feed' | 'chat' | 'calendar'>('feed');
   const [showSidebar, setShowSidebar] = useState(false);
 
@@ -105,6 +108,25 @@ export default function DashboardPage() {
 
             {/* User Menu */}
             <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border/40">
+              {/* Notifications */}
+              <NotificationsDropdown />
+
+              {/* Match Requests */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push('/requests')}
+                className="h-9 w-9 relative"
+                title="Match Requests"
+              >
+                <Inbox className="h-5 w-5" />
+                {requests.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {requests.length > 9 ? '9+' : requests.length}
+                  </span>
+                )}
+              </Button>
+
               <Button
                 variant="ghost"
                 size="icon"
